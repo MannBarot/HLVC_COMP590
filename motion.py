@@ -1,5 +1,12 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import numpy as np
+
+# Import contrib for dense_image_warp
+try:
+    from tensorflow.contrib.image import dense_image_warp
+except ImportError:
+    # Fallback if contrib not available
+    from tensorflow_addons.image import dense_image_warp
 
 def convnet(im1_warp, im2, flow, layer):
 
@@ -24,11 +31,11 @@ def convnet(im1_warp, im2, flow, layer):
 def loss(flow_course, im1, im2, layer):
 
     flow = tf.image.resize_images(flow_course, [tf.shape(im1)[1], tf.shape(im2)[2]])
-    im1_warped = tf.contrib.image.dense_image_warp(im1, flow)
+    im1_warped = dense_image_warp(im1, flow)
     res = convnet(im1_warped, im2, flow, layer)
     flow_fine = res + flow
 
-    im1_warped_fine = tf.contrib.image.dense_image_warp(im1, flow_fine)
+    im1_warped_fine = dense_image_warp(im1, flow_fine)
     loss_layer = tf.reduce_mean(tf.squared_difference(im1_warped_fine, im2))
 
     return loss_layer, flow_fine

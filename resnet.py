@@ -1,10 +1,13 @@
 import numpy as np
 # from hyper_parameters import *
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 BN_EPSILON = 0.001
 
 weight_decay = 0.0002
+
+# Default initializer for TF2 compatibility
+_default_initializer = tf.glorot_uniform_initializer()
 
 def activation_summary(x):
     '''
@@ -16,7 +19,7 @@ def activation_summary(x):
     tf.summary.scalar(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
 
 
-def create_variables(name, shape, initializer=tf.contrib.layers.xavier_initializer(), is_fc_layer=False):
+def create_variables(name, shape, initializer=None, is_fc_layer=False):
     '''
     :param name: A string. The name of the new variable
     :param shape: A list of dimensions
@@ -25,9 +28,11 @@ def create_variables(name, shape, initializer=tf.contrib.layers.xavier_initializ
     layers.
     :return: The created variable
     '''
+    if initializer is None:
+        initializer = _default_initializer
 
     ## TODO: to allow different weight decay to fully connected layer and conv layer
-    regularizer = tf.contrib.layers.l2_regularizer(scale=weight_decay)
+    regularizer = tf.keras.regularizers.L2(weight_decay)
 
     new_variables = tf.get_variable(name, shape=shape, initializer=initializer,
                                     regularizer=regularizer)

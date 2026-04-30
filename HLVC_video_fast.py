@@ -1,7 +1,9 @@
 import argparse
 import numpy as np
 import os
-from scipy import misc
+import sys
+import subprocess
+import imageio
 from ms_ssim_np import MultiScaleSSIM
 from Compare_select import compare
 from Compare_select import select
@@ -16,11 +18,14 @@ parser.add_argument("--frame", type=int, default=101)
 parser.add_argument("--GOP", type=int, default=10, choices=[10])
 # Do not change the GOP size, this demo only supports GOP = 10. Other GOPs need to modify this code.
 parser.add_argument("--mode", default='PSNR', choices=['PSNR', 'MS-SSIM'])
-parser.add_argument("--python_path", default='python')
+parser.add_argument("--python_path", default=sys.executable)
 parser.add_argument("--CA_model_path", default='CA_EntropyModel_Test')
 parser.add_argument("--l", type=int, default=1024, choices=[8, 16, 32, 64, 256, 512, 1024, 2048])
 parser.add_argument("--enh", type=int, default=1, choices=[0, 1])
 args = parser.parse_args()
+
+# DEBUG: print python path being used
+print(f"[DEBUG] Python executable: {sys.executable}", flush=True)
 
 assert (args.frame % args.GOP == 1)
 
@@ -50,7 +55,7 @@ os.makedirs(path_com, exist_ok=True)
 batch_size = 1
 Channel = 3
 
-F1 = misc.imread(path + 'f001.png')
+F1 = imageio.imread(path + 'f001.png')
 Height = np.size(F1, 0)
 Width = np.size(F1, 1)
 
@@ -66,21 +71,29 @@ f = 0
 if args.mode == 'PSNR':
     os.system('bpgenc -f 444 -m 9 ' + path + 'f' + str(f + 1).zfill(3) + '.png -o ' + path_com + str(f + 1).zfill(3) + '.bin -q ' + str(I_QP))
     os.system('bpgdec ' + path_com + str(f + 1).zfill(3) + '.bin -o ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
+    # On some Windows builds bpgdec may write to "out.png" instead of the -o path; move it if present
+    expected_png = path_com + 'f' + str(f + 1).zfill(3) + '.png'
+    if (not os.path.exists(expected_png)) and os.path.exists('out.png'):
+        try:
+            os.replace('out.png', expected_png)
+        except Exception:
+            pass
 elif args.mode == 'MS-SSIM':
-    os.system(args.python_path + ' ' + args.CA_model_path + '/encode.py --model_type 1 --input_path ' + path + 'f' + str(f + 1).zfill(3) + '.png' +
+    os.system('"' + args.python_path + '"' + ' ' + args.CA_model_path + '/encode.py --model_type 1 --input_path ' + path + 'f' + str(f + 1).zfill(3) + '.png' +
               ' --compressed_file_path ' + path_com + str(f + 1).zfill(3) + '.bin' + ' --quality_level ' + str(I_level))
-    os.system(args.python_path + ' ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(f + 1).zfill(3) + '.bin'
+    os.system('"' + args.python_path + '"' + ' ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(f + 1).zfill(3) + '.bin'
               + ' --recon_path ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
 
-F0_com = misc.imread(path_com + 'f' + str(f + 1).zfill(3) + '.png')
-F0_raw = misc.imread(path + 'f' + str(f + 1).zfill(3) + '.png')
+F0_com = imageio.imread(path_com + 'f' + str(f + 1).zfill(3) + '.png')
+F0_raw = imageio.imread(path + 'f' + str(f + 1).zfill(3) + '.png')
 
 if args.mode == 'PSNR':
     mse = np.mean(np.power(np.subtract(F0_com / 255.0, F0_raw / 255.0), 2.0))
-    quality_frame[f] = 10 * np.log10(1.0 / mse)
+    quality_frame[f] = float(10 * np.log10(1.0 / mse))
 elif args.mode == 'MS-SSIM':
-    quality_frame[f] = MultiScaleSSIM(np.expand_dims(F0_com, 0),
-                                      np.expand_dims(F0_raw, 0), max_val=255)
+    result = MultiScaleSSIM(np.expand_dims(F0_com, 0),
+                            np.expand_dims(F0_raw, 0), max_val=255)
+    quality_frame[f] = float(result) if hasattr(result, '__len__') else result
 
 with open(path_com + 'quality_' + str(f + 1).zfill(3) + '.bin', "wb") as ff:
     ff.write(np.array(quality_frame[f], dtype=np.float32).tobytes())
@@ -94,7 +107,7 @@ bits_frame[f] = bits / Height / Width
 print('Frame', f + 1)
 print(args.mode + ' (before WRQE) =', quality_frame[f], 'bpp =', bits_frame[f])
 
-for g in range(np.int(np.ceil((args.frame-1)/args.GOP))):
+for g in range(int(np.ceil((args.frame-1)/args.GOP))):
 
     # I frame
 
@@ -105,24 +118,35 @@ for g in range(np.int(np.ceil((args.frame-1)/args.GOP))):
             3) + '.bin -q ' + str(I_QP))
         os.system(
             'bpgdec ' + path_com + str(f + 1).zfill(3) + '.bin -o ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
+        # Handle bpgdec writing to out.png on some Windows builds
+        expected_png = path_com + 'f' + str(f + 1).zfill(3) + '.png'
+        if (not os.path.exists(expected_png)) and os.path.exists('out.png'):
+            try:
+                os.replace('out.png', expected_png)
+            except Exception:
+                pass
     elif args.mode == 'MS-SSIM':
-        os.system(
-            args.python_path + ' ' + args.CA_model_path + '/encode.py --model_type 1 --input_path ' + path + 'f' + str(
-                f + 1).zfill(3) + '.png' +
-            ' --compressed_file_path ' + path_com + str(f + 1).zfill(3) + '.bin' + ' --quality_level ' + str(I_level))
-        os.system(args.python_path + ' ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(
-            f + 1).zfill(3) + '.bin'
-                  + ' --recon_path ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
+        encode_cmd = [args.python_path, args.CA_model_path + '/encode.py', '--model_type', '1', '--input_path',
+                      path + 'f' + str(f + 1).zfill(3) + '.png',
+                      '--compressed_file_path', path_com + str(f + 1).zfill(3) + '.bin',
+                      '--quality_level', str(I_level)]
+        subprocess.run(encode_cmd, check=False, env=os.environ.copy())
+        
+        decode_cmd = [args.python_path, args.CA_model_path + '/decode.py', '--compressed_file_path',
+                      path_com + str(f + 1).zfill(3) + '.bin',
+                      '--recon_path', path_com + 'f' + str(f + 1).zfill(3) + '.png']
+        subprocess.run(decode_cmd, check=False, env=os.environ.copy())
 
-    F0_com = misc.imread(path_com + 'f' + str(f + 1).zfill(3) + '.png')
-    F0_raw = misc.imread(path + 'f' + str(f + 1).zfill(3) + '.png')
+    F0_com = imageio.imread(path_com + 'f' + str(f + 1).zfill(3) + '.png')
+    F0_raw = imageio.imread(path + 'f' + str(f + 1).zfill(3) + '.png')
 
     if args.mode == 'PSNR':
         mse = np.mean(np.power(np.subtract(F0_com / 255.0, F0_raw / 255.0), 2.0))
-        quality_frame[f] = 10 * np.log10(1.0 / mse)
+        quality_frame[f] = float(10 * np.log10(1.0 / mse))
     elif args.mode == 'MS-SSIM':
-        quality_frame[f] = MultiScaleSSIM(np.expand_dims(F0_com, 0),
-                                          np.expand_dims(F0_raw, 0), max_val=255)
+        result = MultiScaleSSIM(np.expand_dims(F0_com, 0),
+                                np.expand_dims(F0_raw, 0), max_val=255)
+        quality_frame[f] = float(result) if hasattr(result, '__len__') else result
 
     with open(path_com + 'quality_' + str(f + 1).zfill(3) + '.bin', "wb") as ff:
         ff.write(np.array(quality_frame[f], dtype=np.float32).tobytes())
@@ -141,18 +165,20 @@ for g in range(np.int(np.ceil((args.frame-1)/args.GOP))):
 
     ## B-frame
     print('Frame', f + 1)
-    os.system(args.python_path + ' HLVC_layer2_B-frame.py --ref_1 '
-              + path_com + 'f' + str(g * args.GOP + 1).zfill(3) + '.png'
-              + ' --ref_2 ' + path_com + 'f' + str((g + 1) * args.GOP + 1).zfill(3) + '.png'
-              + ' --raw ' + path + 'f' + str(f + 1).zfill(3) + '.png'
-              + ' --com ' + path_com + 'f' + str(f + 1).zfill(3) + '.png'
-              + ' --bin ' + path_com + str(f + 1).zfill(3) + '.bin'
-              + ' --mode ' + args.mode
-              + ' --l ' + str(4 * args.l))
+    cmd = [args.python_path, 'HLVC_layer2_B-frame.py', '--ref_1',
+              path_com + 'f' + str(g * args.GOP + 1).zfill(3) + '.png',
+              '--ref_2', path_com + 'f' + str((g + 1) * args.GOP + 1).zfill(3) + '.png',
+              '--raw', path + 'f' + str(f + 1).zfill(3) + '.png',
+              '--com', path_com + 'f' + str(f + 1).zfill(3) + '.png',
+              '--bin', path_com + str(f + 1).zfill(3) + '.bin',
+              '--mode', args.mode,
+              '--l', str(4 * args.l)]
+    print(f"[DEBUG] Running: {cmd[0]} {cmd[1]}", flush=True)
+    subprocess.run(cmd, check=False, env=os.environ.copy())
 
     bits_3 = os.path.getsize(path_com + str(f + 1).zfill(3) + '.bin') * 8.0 / Height / Width
     with open(path_com + str(f + 1).zfill(3) + '.bin', "rb") as ff:
-        quality_3 = np.frombuffer(ff.read(4), dtype=np.float32)
+        quality_3 = np.frombuffer(ff.read(4), dtype=np.float32)[0]  # Extract scalar from array
 
     select_frame[f] = 3
     quality_frame[f] = quality_3
@@ -197,15 +223,16 @@ for g in range(np.int(np.ceil((args.frame-1)/args.GOP))):
 
         ## A pair of BP-frames
         print('Frame', f_tar1, '&', f_tar2)
-        os.system(args.python_path + ' HLVC_layer3_BP-frame.py --ref '
-                  + path_com + 'f' + str(f_ref).zfill(3) + '.png'
-                  + ' --raw_1 ' + path + 'f' + str(f_tar1).zfill(3) + '.png'
-                  + ' --raw_2 ' + path + 'f' + str(f_tar2).zfill(3) + '.png'
-                  + ' --com_1 ' + path_com + 'f' + str(f_tar1).zfill(3) + '.png'
-                  + ' --com_2 ' + path_com + 'f' + str(f_tar2).zfill(3) + '.png'
-                  + ' --bin ' + path_com + str(f_tar1).zfill(3) + '_' + str(f_tar2).zfill(3) + '.bin'
-                  + ' --mode ' + args.mode
-                  + ' --l ' + str(args.l) + ' --nearlayer ' + str(aroundlayer))
+        bp_cmd = [args.python_path, 'HLVC_layer3_BP-frame.py', '--ref',
+                  path_com + 'f' + str(f_ref).zfill(3) + '.png',
+                  '--raw_1', path + 'f' + str(f_tar1).zfill(3) + '.png',
+                  '--raw_2', path + 'f' + str(f_tar2).zfill(3) + '.png',
+                  '--com_1', path_com + 'f' + str(f_tar1).zfill(3) + '.png',
+                  '--com_2', path_com + 'f' + str(f_tar2).zfill(3) + '.png',
+                  '--bin', path_com + str(f_tar1).zfill(3) + '_' + str(f_tar2).zfill(3) + '.bin',
+                  '--mode', args.mode,
+                  '--l', str(args.l), '--nearlayer', str(aroundlayer)]
+        subprocess.run(bp_cmd, check=False, env=os.environ.copy())
 
         bits_bp = os.path.getsize(path_com + str(f_tar1).zfill(3) + '_' + str(f_tar2).zfill(3) + '.bin') * 8.0 / Height / Width
         with open(path_com + str(f_tar1).zfill(3) + '_' + str(f_tar2).zfill(3) + '.bin', "rb") as ff:
@@ -238,12 +265,15 @@ if args.enh == 1:
     np.save(path_com + 'quality.npy', quality_frame)
     np.save(path_com + 'bits.npy', bits_frame)
 
-    os.system(args.python_path + ' WRQE.py --path_bin ' + path_com + ' --mode ' + args.mode +
-              ' --frame ' + str(args.frame) + ' --GOP ' + str(args.GOP) + ' --l ' + str(args.l)
-              + ' --path_raw ' + args.path)
+    wrqe_cmd = [args.python_path, 'WRQE.py', '--path_bin', path_com, '--mode', args.mode,
+                '--frame', str(args.frame), '--GOP', str(args.GOP), '--l', str(args.l),
+                '--path_raw', args.path]
+    subprocess.run(wrqe_cmd, check=False, env=os.environ.copy())
 
     os.makedirs(path_com + 'frames_HLVC_fast', exist_ok=True)
-    os.system('mv ' + path_com + '*_enh.png ' + path_com + 'frames_HLVC')
+    # Note: mv command is Unix-only; on Windows this will fail silently
+    subprocess.run(['mv', path_com + '*_enh.png', path_com + 'frames_HLVC'], check=False, env=os.environ.copy())
 
 os.makedirs(path_com + 'frames_beforeWRQE_fast', exist_ok=True)
-os.system('mv ' + path_com + '*.png ' + path_com + 'frames_beforeWRQE')
+# Note: mv command is Unix-only; on Windows this will fail silently
+subprocess.run(['mv', path_com + '*.png', path_com + 'frames_beforeWRQE'], check=False, env=os.environ.copy())
