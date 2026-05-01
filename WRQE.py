@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import enh_networks
 from scipy import misc
+import imageio.v2 as imageio
 import argparse
 import os
 import my_ssim
@@ -23,7 +24,7 @@ args = parser.parse_args()
 bits = np.load(args.path_bin + '/bits.npy')
 quality = np.load(args.path_bin + '/quality.npy')
 
-img_get_size = misc.imread(args.path_bin + '/f001.png')
+img_get_size = imageio.imread(args.path_bin + '/f001.png')
 
 batch_size = 1
 Height = np.size(img_get_size, 0)
@@ -145,8 +146,8 @@ for g in range(gops):
 
     for s in range(step):
         if args.path_raw is not None:
-            frame_raw[0, s, :, :, :] = misc.imread(path_raw + 'f' + str(10 * g + s + 1).zfill(3) + '.png')
-        frame_com[0, s, :, :, :] = misc.imread(args.path_bin + '/f' + str(10 * g + s + 1).zfill(3) + '.png')
+            frame_raw[0, s, :, :, :] = imageio.imread(path_raw + 'f' + str(10 * g + s + 1).zfill(3) + '.png')
+        frame_com[0, s, :, :, :] = imageio.imread(args.path_bin + '/f' + str(10 * g + s + 1).zfill(3) + '.png')
         frame_fea[0, s, 0:5] = norm(quality_gop[s: s + 5])
         frame_fea[0, s, 5:10] = norm(bits_gop[s: s + 5])
 

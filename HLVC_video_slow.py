@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import os
 from scipy import misc
+import imageio.v2 as imageio
 from ms_ssim_np import MultiScaleSSIM
 from Compare_select import compare
 from Compare_select import select
@@ -50,7 +51,7 @@ os.makedirs(path_com, exist_ok=True)
 batch_size = 1
 Channel = 3
 
-F1 = misc.imread(path + 'f001.png')
+F1 = imageio.imread(path + 'f001.png')
 Height = np.size(F1, 0)
 Width = np.size(F1, 1)
 
@@ -72,8 +73,8 @@ elif args.mode == 'MS-SSIM':
     os.system(args.python_path + ' ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(f + 1).zfill(3) + '.bin'
               + ' --recon_path ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
 
-F0_com = misc.imread(path_com + 'f' + str(f + 1).zfill(3) + '.png')
-F0_raw = misc.imread(path + 'f' + str(f + 1).zfill(3) + '.png')
+F0_com = imageio.imread(path_com + 'f' + str(f + 1).zfill(3) + '.png')
+F0_raw = imageio.imread(path + 'f' + str(f + 1).zfill(3) + '.png')
 
 if args.mode == 'PSNR':
     mse = np.mean(np.power(np.subtract(F0_com / 255.0, F0_raw / 255.0), 2.0))
@@ -112,8 +113,8 @@ for g in range(np.int(np.ceil((args.frame-1)/args.GOP))):
             f + 1).zfill(3) + '.bin'
                   + ' --recon_path ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
 
-    F0_com = misc.imread(path_com + 'f' + str(f + 1).zfill(3) + '.png')
-    F0_raw = misc.imread(path + 'f' + str(f + 1).zfill(3) + '.png')
+    F0_com = imageio.imread(path_com + 'f' + str(f + 1).zfill(3) + '.png')
+    F0_raw = imageio.imread(path + 'f' + str(f + 1).zfill(3) + '.png')
 
     if args.mode == 'PSNR':
         mse = np.mean(np.power(np.subtract(F0_com / 255.0, F0_raw / 255.0), 2.0))
@@ -200,8 +201,8 @@ for g in range(np.int(np.ceil((args.frame-1)/args.GOP))):
     bits = os.path.getsize(path_com + str(f + 1).zfill(3) + '_intra_cand.bin')
     bits_4 = bits * 8 / Height / Width
 
-    F0_com = misc.imread(path_com + 'f' + str(f + 1).zfill(3) + '_intra_cand.png')
-    F0_raw = misc.imread(path + 'f' + str(f + 1).zfill(3) + '.png')
+    F0_com = imageio.imread(path_com + 'f' + str(f + 1).zfill(3) + '_intra_cand.png')
+    F0_raw = imageio.imread(path + 'f' + str(f + 1).zfill(3) + '.png')
 
     if args.mode == 'PSNR':
         mse = np.mean(np.power(np.subtract(F0_com / 255.0, F0_raw / 255.0), 2.0))

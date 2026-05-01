@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_compression as tfc
 from scipy import misc
+import imageio.v2 as imageio
 import CNN_img
 import motion
 import MC_network
@@ -29,8 +30,8 @@ args = parser.parse_args()
 batch_size = 1
 Channel = 3
 
-Y0_com_img = misc.imread(args.ref)
-# Y1_raw_img = misc.imread(args.raw)
+Y0_com_img = imageio.imread(args.ref)
+# Y1_raw_img = imageio.imread(args.raw)
 
 Y0_com_img = np.expand_dims(Y0_com_img, 0)
 # Y1_raw_img = np.expand_dims(Y1_raw_img, 0)
