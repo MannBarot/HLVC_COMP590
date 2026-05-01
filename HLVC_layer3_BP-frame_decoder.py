@@ -10,8 +10,8 @@ import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-config = tf.ConfigProto(allow_soft_placement=True)
-sess = tf.Session(config=config)
+config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
+sess = tf.compat.v1.Session(config=config)
 
 parser = argparse.ArgumentParser(
       formatter_class=argparse.ArgumentDefaultsHelpFormatter)

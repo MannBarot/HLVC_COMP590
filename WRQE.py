@@ -87,8 +87,8 @@ def sig(x):
     return y
 
 
-config = tf.ConfigProto(allow_soft_placement=True)
-sess = tf.Session(config=config)
+config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
+sess = tf.compat.v1.Session(config=config)
 
 x1 = tf.placeholder(tf.float32, [batch_size, step, Height, Width, Channel])  # raw
 x2 = tf.placeholder(tf.float32, [batch_size, step, Height, Width, Channel])  # compressed

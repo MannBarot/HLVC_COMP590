@@ -1,6 +1,13 @@
 import argparse
-import numpy as np
 import os
+import sys
+
+# Suppress warnings
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+import numpy as np
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -48,7 +55,7 @@ batch_size = 1
 Channel = 3
 
 # Load an image to get Height and Width for normalization
-import imageio
+import imageio.v2 as imageio
 img_sample = imageio.imread(path_com + 'f001.png')
 Height = np.size(img_sample, 0)
 Width = np.size(img_sample, 1)
@@ -60,6 +67,10 @@ f = 0
 
 if args.mode == 'PSNR':
     os.system('bpgdec ' + path_com + str(f + 1).zfill(3) + '.bin -o ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
+    # Handle Windows bpgdec writing to out.png (writes to current dir, not path_com)
+    expected_png = path_com + 'f' + str(f + 1).zfill(3) + '.png'
+    if (not os.path.exists(expected_png)) and os.path.exists('out.png'):
+        os.replace('out.png', expected_png)
 elif args.mode == 'MS-SSIM':
     os.system(args.python_path + ' ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(f + 1).zfill(3) + '.bin'
               + ' --recon_path ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
@@ -82,6 +93,10 @@ for g in range(int(np.ceil((args.frame-1)/args.GOP))):
 
     if args.mode == 'PSNR':
         os.system('bpgdec ' + path_com + str(f + 1).zfill(3) + '.bin -o ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
+        # Handle Windows bpgdec writing to out.png (writes to current dir, not path_com)
+        expected_png = path_com + 'f' + str(f + 1).zfill(3) + '.png'
+        if (not os.path.exists(expected_png)) and os.path.exists('out.png'):
+            os.replace('out.png', expected_png)
     elif args.mode == 'MS-SSIM':
         os.system(args.python_path + ' ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(
             f + 1).zfill(3) + '.bin'
@@ -157,6 +172,10 @@ for g in range(int(np.ceil((args.frame-1)/args.GOP))):
         if args.mode == 'PSNR':
             os.system('bpgdec ' + path_com + str(f + 1).zfill(3) + '.bin -o '
                       + path_com + 'f' + str(f + 1).zfill(3) + '.png')
+            # Handle Windows bpgdec writing to out.png (writes to current dir, not path_com)
+            expected_png = path_com + 'f' + str(f + 1).zfill(3) + '.png'
+            if (not os.path.exists(expected_png)) and os.path.exists('out.png'):
+                os.replace('out.png', expected_png)
         elif args.mode == 'MS-SSIM':
             os.system(args.python_path + ' ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(
                 f + 1).zfill(3) + '.bin'
@@ -284,6 +303,10 @@ if args.enh == 1:
 
     os.makedirs(path_com + 'frames_HLVC', exist_ok=True)
     os.system('mv *_enh.png ' + path_com + 'frames_HLVC')
+
+# Clean up any leftover out.png files from bpgdec
+if os.path.exists('out.png'):
+    os.remove('out.png')
 
 os.makedirs(path_com + 'frames_beforeWRQE', exist_ok=True)
 os.system('mv *.png ' + path_com + 'frames_beforeWRQE')

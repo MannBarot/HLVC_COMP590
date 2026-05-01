@@ -1,9 +1,15 @@
 import argparse
-import numpy as np
 import os
 import sys
+
+# Suppress warnings
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+import numpy as np
 import subprocess
-import imageio
+import imageio.v2 as imageio
 from ms_ssim_np import MultiScaleSSIM
 from Compare_select import compare
 from Compare_select import select
