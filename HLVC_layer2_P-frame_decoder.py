@@ -11,6 +11,17 @@ import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+# Enable TensorFlow 1.x compatibility mode for TensorFlow 2.x
+tf.compat.v1.disable_eager_execution()
+
+# Compatibility layer for tensorflow_compression versions
+try:
+    from tensorflow_compression.python.layers.entropy_models import EntropyBottleneck
+    if not hasattr(tfc, 'EntropyBottleneck'):
+        tfc.EntropyBottleneck = EntropyBottleneck
+except ImportError:
+    pass
+
 config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
 sess = tf.compat.v1.Session(config=config)
 
@@ -40,11 +51,11 @@ Height = np.size(Y0_com_img, 1)
 Width = np.size(Y0_com_img, 2)
 
 
-Y0_com = tf.placeholder(tf.float32, [batch_size, Height, Width, Channel])
-# Y1_raw = tf.placeholder(tf.float32, [batch_size, Height, Width, Channel])
+Y0_com = tf.compat.v1.placeholder(tf.float32, [batch_size, Height, Width, Channel])
+# Y1_raw = tf.compat.v1.placeholder(tf.float32, [batch_size, Height, Width, Channel])
 
-string_mv_tensor = tf.placeholder(tf.string, [])
-string_res_tensor = tf.placeholder(tf.string, [])
+string_mv_tensor = tf.compat.v1.placeholder(tf.string, [])
+string_res_tensor = tf.compat.v1.placeholder(tf.string, [])
 
 # Motion Decoding
 entropy_bottleneck_mv = tfc.EntropyBottleneck(dtype=tf.float32, name='entropy_bottleneck')

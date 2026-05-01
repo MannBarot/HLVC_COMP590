@@ -11,6 +11,17 @@ import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+# Enable TensorFlow 1.x compatibility mode for TensorFlow 2.x
+tf.compat.v1.disable_eager_execution()
+
+# Compatibility layer for tensorflow_compression versions
+try:
+    from tensorflow_compression.python.layers.entropy_models import EntropyBottleneck
+    if not hasattr(tfc, 'EntropyBottleneck'):
+        tfc.EntropyBottleneck = EntropyBottleneck
+except ImportError:
+    pass
+
 config = tf.compat.v1.ConfigProto(allow_soft_placement=True)
 sess = tf.compat.v1.Session(config=config)
 
@@ -44,16 +55,16 @@ Y0_com_img = np.expand_dims(Y0_com_img, 0)
 Height = np.size(Y0_com_img, 1)
 Width = np.size(Y0_com_img, 2)
 
-Y0_com = tf.placeholder(tf.float32, [batch_size, Height, Width, Channel])
-# Y1_raw = tf.placeholder(tf.float32, [batch_size, Height, Width, Channel])
-# Y2_raw = tf.placeholder(tf.float32, [batch_size, Height, Width, Channel])
+Y0_com = tf.compat.v1.placeholder(tf.float32, [batch_size, Height, Width, Channel])
+# Y1_raw = tf.compat.v1.placeholder(tf.float32, [batch_size, Height, Width, Channel])
+# Y2_raw = tf.compat.v1.placeholder(tf.float32, [batch_size, Height, Width, Channel])
 
-string_mv_tensor = tf.placeholder(tf.string, [])
-string_res1_tensor = tf.placeholder(tf.string, [])
-string_res2_tensor = tf.placeholder(tf.string, [])
+string_mv_tensor = tf.compat.v1.placeholder(tf.string, [])
+string_res1_tensor = tf.compat.v1.placeholder(tf.string, [])
+string_res2_tensor = tf.compat.v1.placeholder(tf.string, [])
 
 
-with tf.variable_scope("motion_compression", reuse=False):
+    with tf.compat.v1.variable_scope("motion_compression", reuse=False):
 
     entropy_mv = tfc.EntropyBottleneck(dtype=tf.float32)
     flow_latent_hat = entropy_mv.decompress(
@@ -61,7 +72,7 @@ with tf.variable_scope("motion_compression", reuse=False):
 
     flow_20_hat = CNN_img.MV_synthesis(flow_latent_hat, num_filters=args.N)
 
-with tf.variable_scope("motion_estimation", reuse=False):
+    with tf.compat.v1.variable_scope("motion_estimation", reuse=False):
 
     flow_02_hat = motion.tf_inverse_flow(flow_20_hat, batch_size, Height, Width)
     flow_01_hat = 0.5 * flow_02_hat
@@ -70,13 +81,13 @@ with tf.variable_scope("motion_estimation", reuse=False):
     flow_21_hat = 0.5 * flow_20_hat
     flow_12_hat = motion.tf_inverse_flow(flow_21_hat, batch_size, Height, Width)
 
-with tf.variable_scope("MC_uni", reuse=False):
+    with tf.compat.v1.variable_scope("MC_uni", reuse=False):
 
     Y2_warp = tf.contrib.image.dense_image_warp(Y0_com, flow_20_hat)
     MC_input_2 = tf.concat([flow_20_hat, Y0_com, Y2_warp], axis=-1)
     Y2_MC = MC_network.MC(MC_input_2)
 
-with tf.variable_scope("Res_compression_2", reuse=False):
+    with tf.compat.v1.variable_scope("Res_compression_2", reuse=False):
 
     entropy_res_2 = tfc.EntropyBottleneck(dtype=tf.float32)
     res2_latent_hat = entropy_res_2.decompress(
@@ -86,14 +97,14 @@ with tf.variable_scope("Res_compression_2", reuse=False):
 
     Y2_com = tf.clip_by_value(Res_2_hat + Y2_MC, 0, 1)
 
-with tf.variable_scope("MC_bi", reuse=False):
+    with tf.compat.v1.variable_scope("MC_bi", reuse=False):
 
     Y1_warp_0 = tf.contrib.image.dense_image_warp(Y0_com, flow_10_hat)
     Y1_warp_2 = tf.contrib.image.dense_image_warp(Y2_com, flow_12_hat)
     MC_input_1 = tf.concat([flow_10_hat, Y0_com, Y1_warp_0, flow_12_hat, Y2_com, Y1_warp_2], axis=-1)
     Y1_MC = MC_network.MC(MC_input_1)
 
-with tf.variable_scope("Res_compression_1", reuse=False):
+    with tf.compat.v1.variable_scope("Res_compression_1", reuse=False):
 
     entropy_res_1 = tfc.EntropyBottleneck(dtype=tf.float32)
     res1_latent_hat = entropy_res_1.decompress(

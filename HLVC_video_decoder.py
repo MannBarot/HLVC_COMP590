@@ -18,7 +18,7 @@ parser.add_argument("--frame", type=int, default=101)
 parser.add_argument("--GOP", type=int, default=10, choices=[10])
 # Do not change the GOP size, this demo only supports GOP = 10. Other GOPs need to modify this code.
 parser.add_argument("--mode", default='PSNR', choices=['PSNR', 'MS-SSIM'])
-parser.add_argument("--python_path", default='python')
+parser.add_argument("--python_path", default=sys.executable)
 parser.add_argument("--CA_model_path", default='CA_EntropyModel_Test')
 parser.add_argument("--l", type=int, default=1024, choices=[8, 16, 32, 64, 256, 512, 1024, 2048])
 parser.add_argument("--enh", type=int, default=1, choices=[0, 1])
@@ -64,15 +64,21 @@ with open(path_com + '/select.bin', "rb") as ff:
     select_frame = np.frombuffer(ff.read(), dtype=np.uint8)
 
 f = 0
+out_counter = 1  # Counter for renaming out.png files
 
 if args.mode == 'PSNR':
     os.system('bpgdec ' + path_com + str(f + 1).zfill(3) + '.bin -o ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
-    # Handle Windows bpgdec writing to out.png (writes to current dir, not path_com)
+    # On some Windows builds bpgdec may write to "out.png" instead of the -o path; rename it if present
     expected_png = path_com + 'f' + str(f + 1).zfill(3) + '.png'
     if (not os.path.exists(expected_png)) and os.path.exists('out.png'):
-        os.replace('out.png', expected_png)
+        try:
+            numbered_out = 'out' + str(out_counter).zfill(3) + '.png'
+            os.replace('out.png', numbered_out)
+            out_counter += 1
+        except Exception:
+            pass
 elif args.mode == 'MS-SSIM':
-    os.system(args.python_path + ' ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(f + 1).zfill(3) + '.bin'
+    os.system('"' + args.python_path + '" ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(f + 1).zfill(3) + '.bin'
               + ' --recon_path ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
 
 with open(path_com + 'quality_' + str(f + 1).zfill(3) + '.bin', "rb") as ff:
@@ -93,12 +99,17 @@ for g in range(int(np.ceil((args.frame-1)/args.GOP))):
 
     if args.mode == 'PSNR':
         os.system('bpgdec ' + path_com + str(f + 1).zfill(3) + '.bin -o ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
-        # Handle Windows bpgdec writing to out.png (writes to current dir, not path_com)
+        # On some Windows builds bpgdec may write to "out.png" instead of the -o path; rename it if present
         expected_png = path_com + 'f' + str(f + 1).zfill(3) + '.png'
         if (not os.path.exists(expected_png)) and os.path.exists('out.png'):
-            os.replace('out.png', expected_png)
+            try:
+                numbered_out = 'out' + str(out_counter).zfill(3) + '.png'
+                os.replace('out.png', numbered_out)
+                out_counter += 1
+            except Exception:
+                pass
     elif args.mode == 'MS-SSIM':
-        os.system(args.python_path + ' ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(
+        os.system('"' + args.python_path + '" ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(
             f + 1).zfill(3) + '.bin'
                   + ' --recon_path ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
 
@@ -118,7 +129,7 @@ for g in range(int(np.ceil((args.frame-1)/args.GOP))):
 
     if select_frame[f] == 1:
 
-        os.system(args.python_path + ' HLVC_layer2_P-frame_decoder.py --ref '
+        os.system('"' + args.python_path + '" HLVC_layer2_P-frame_decoder.py --ref '
                   + path_com + 'f' + str(g * args.GOP + 1).zfill(3) + '.png'
                   + ' --com ' + path_com + 'f' + str(f + 1).zfill(3) + '.png'
                   + ' --bin ' + path_com + str(f + 1).zfill(3) + '.bin'
@@ -135,7 +146,7 @@ for g in range(int(np.ceil((args.frame-1)/args.GOP))):
 
     elif select_frame[f] == 2:
 
-        os.system(args.python_path + ' HLVC_layer2_P-frame_decoder.py --ref '
+        os.system('"' + args.python_path + '" HLVC_layer2_P-frame_decoder.py --ref '
                   + path_com + 'f' + str((g + 1) * args.GOP + 1).zfill(3) + '.png'
                   + ' --com ' + path_com + 'f' + str(f + 1).zfill(3) + '.png'
                   + ' --bin ' + path_com + str(f + 1).zfill(3) + '.bin'
@@ -151,7 +162,7 @@ for g in range(int(np.ceil((args.frame-1)/args.GOP))):
         bits_frame[f] = bits * 8
 
     elif select_frame[f] == 3:
-        os.system(args.python_path + ' HLVC_layer2_B-frame_decoder.py --ref_1 '
+        os.system('"' + args.python_path + '" HLVC_layer2_B-frame_decoder.py --ref_1 '
                   + path_com + 'f' + str(g * args.GOP + 1).zfill(3) + '.png'
                   + ' --ref_2 ' + path_com + 'f' + str((g + 1) * args.GOP + 1).zfill(3) + '.png'
                   + ' --com ' + path_com + 'f' + str(f + 1).zfill(3) + '.png'
@@ -172,12 +183,17 @@ for g in range(int(np.ceil((args.frame-1)/args.GOP))):
         if args.mode == 'PSNR':
             os.system('bpgdec ' + path_com + str(f + 1).zfill(3) + '.bin -o '
                       + path_com + 'f' + str(f + 1).zfill(3) + '.png')
-            # Handle Windows bpgdec writing to out.png (writes to current dir, not path_com)
+            # On some Windows builds bpgdec may write to "out.png" instead of the -o path; rename it if present
             expected_png = path_com + 'f' + str(f + 1).zfill(3) + '.png'
             if (not os.path.exists(expected_png)) and os.path.exists('out.png'):
-                os.replace('out.png', expected_png)
+                try:
+                    numbered_out = 'out' + str(out_counter).zfill(3) + '.png'
+                    os.replace('out.png', numbered_out)
+                    out_counter += 1
+                except Exception:
+                    pass
         elif args.mode == 'MS-SSIM':
-            os.system(args.python_path + ' ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(
+            os.system('"' + args.python_path + '" ' + args.CA_model_path + '/decode.py --compressed_file_path ' + path_com + str(
                 f + 1).zfill(3) + '.bin'
                       + ' --recon_path ' + path_com + 'f' + str(f + 1).zfill(3) + '.png')
 
@@ -235,7 +251,7 @@ for g in range(int(np.ceil((args.frame-1)/args.GOP))):
 
 
         if select_frame[f_tar1 - 1] == 1:
-            os.system(args.python_path + ' HLVC_layer3_P-frame_decoder.py --ref '
+            os.system('"' + args.python_path + '" HLVC_layer3_P-frame_decoder.py --ref '
                       + path_com + 'f' + str(f_ref).zfill(3) + '.png'
                       + ' --com ' + path_com + 'f' + str(f_tar1).zfill(3) + '.png'
                       + ' --bin ' + path_com + str(f_tar1).zfill(3) + '.bin'
@@ -250,7 +266,7 @@ for g in range(int(np.ceil((args.frame-1)/args.GOP))):
             quality_frame[f_tar1 - 1] = quality[0]
             bits_frame[f_tar1 - 1] = bits * 8
 
-            os.system(args.python_path + ' HLVC_layer3_P-frame_decoder.py --ref '
+            os.system('"' + args.python_path + '" HLVC_layer3_P-frame_decoder.py --ref '
                       + path_com + 'f' + str(f_tar1).zfill(3) + '.png'
                       + ' --com ' + path_com + 'f' + str(f_tar2).zfill(3) + '.png'
                       + ' --bin ' + path_com + str(f_tar2).zfill(3) + '.bin'
@@ -266,7 +282,7 @@ for g in range(int(np.ceil((args.frame-1)/args.GOP))):
             bits_frame[f_tar2 - 1] = bits * 8
 
         elif select_frame[f_tar1 - 1] == 2:
-            os.system(args.python_path + ' HLVC_layer3_BP-frame_decoder.py --ref '
+            os.system('"' + args.python_path + '" HLVC_layer3_BP-frame_decoder.py --ref '
                       + path_com + 'f' + str(f_ref).zfill(3) + '.png'
                       + ' --com_1 ' + path_com + 'f' + str(f_tar1).zfill(3) + '.png'
                       + ' --com_2 ' + path_com + 'f' + str(f_tar2).zfill(3) + '.png'
@@ -297,16 +313,19 @@ if args.enh == 1:
     np.save(path_com + 'quality.npy', quality_frame)
     np.save(path_com + 'bits.npy', bits_frame_normalized)
 
-    os.system(args.python_path + ' WRQE.py --path_bin ' + path_com + ' --mode ' + args.mode +
+    os.system('"' + args.python_path + '" WRQE.py --path_bin ' + path_com + ' --mode ' + args.mode +
               ' --frame ' + str(args.frame) + ' --GOP ' + str(args.GOP) + ' --l ' + str(args.l)
               + ' --path_raw ' + args.path_raw)
 
     os.makedirs(path_com + 'frames_HLVC', exist_ok=True)
     os.system('mv *_enh.png ' + path_com + 'frames_HLVC')
 
-# Clean up any leftover out.png files from bpgdec
-if os.path.exists('out.png'):
-    os.remove('out.png')
+# Move any numbered out files (from bpgdec fallback) to output folder
+for i in range(1, out_counter):
+    out_file = 'out' + str(i).zfill(3) + '.png'
+    if os.path.exists(out_file):
+        os.makedirs(path_com + 'frames_beforeWRQE', exist_ok=True)
+        os.replace(out_file, path_com + 'frames_beforeWRQE' + os.sep + out_file)
 
 os.makedirs(path_com + 'frames_beforeWRQE', exist_ok=True)
 os.system('mv *.png ' + path_com + 'frames_beforeWRQE')
