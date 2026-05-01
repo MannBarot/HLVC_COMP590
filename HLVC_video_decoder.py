@@ -6,6 +6,7 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument("--path_bin", default='BasketballPass_com_slow_PSNR_1024')
+parser.add_argument("--path_raw", default='BasketballPass')
 parser.add_argument("--frame", type=int, default=101)
 parser.add_argument("--GOP", type=int, default=10, choices=[10])
 # Do not change the GOP size, this demo only supports GOP = 10. Other GOPs need to modify this code.
@@ -46,6 +47,12 @@ bits_frame = np.zeros([args.frame])
 batch_size = 1
 Channel = 3
 
+# Load an image to get Height and Width for normalization
+import imageio
+img_sample = imageio.imread(path_com + 'f001.png')
+Height = np.size(img_sample, 0)
+Width = np.size(img_sample, 1)
+
 with open(path_com + '/select.bin', "rb") as ff:
     select_frame = np.frombuffer(ff.read(), dtype=np.uint8)
 
@@ -67,7 +74,7 @@ print('Decoded Frame', f + 1, args.mode + ' (before WRQE) =', quality[0])
 quality_frame[f] = quality[0]
 bits_frame[f] = bits * 8
 
-for g in range(np.int(np.ceil((args.frame-1)/args.GOP))):
+for g in range(int(np.ceil((args.frame-1)/args.GOP))):
 
     # I frame
 
@@ -265,8 +272,11 @@ for g in range(np.int(np.ceil((args.frame-1)/args.GOP))):
 
 if args.enh == 1:
 
+    # Normalize bits by frame dimensions (like encoder does)
+    bits_frame_normalized = bits_frame / Height / Width
+    
     np.save(path_com + 'quality.npy', quality_frame)
-    np.save(path_com + 'bits.npy', bits_frame)
+    np.save(path_com + 'bits.npy', bits_frame_normalized)
 
     os.system(args.python_path + ' WRQE.py --path_bin ' + path_com + ' --mode ' + args.mode +
               ' --frame ' + str(args.frame) + ' --GOP ' + str(args.GOP) + ' --l ' + str(args.l)
