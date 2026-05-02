@@ -34,7 +34,7 @@ elif args.l == 1024:
 elif args.l == 2048:
     I_QP = 22
 
-elif args.l == 8:
+if args.l == 8:
     I_level = 2
 elif args.l == 16:
     I_level = 3
@@ -42,6 +42,14 @@ elif args.l == 32:
     I_level = 5
 elif args.l == 64:
     I_level = 7
+elif args.l == 256:
+    I_level = 11
+elif args.l == 512:
+    I_level = 13
+elif args.l == 1024:
+    I_level = 15
+elif args.l == 2048:
+    I_level = 17
 
 path = args.path + '/'
 path_com = args.path + '_com_slow_' + args.mode  + '_' + str(args.l) + '/'

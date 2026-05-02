@@ -20,3 +20,7 @@ frames_beforeWRQE_*/
 # OS
 .DS_Store
 Thumbs.db
+
+/CA_Entropy_Model/
+
+models/

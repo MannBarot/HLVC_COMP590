@@ -25,7 +25,7 @@ parser.add_argument("--GOP", type=int, default=10, choices=[10])
 # Do not change the GOP size, this demo only supports GOP = 10. Other GOPs need to modify this code.
 parser.add_argument("--mode", default='PSNR', choices=['PSNR', 'MS-SSIM'])
 parser.add_argument("--python_path", default=sys.executable)
-parser.add_argument("--CA_model_path", default='CA_EntropyModel_Test')
+parser.add_argument("--CA_model_path", default='CA_Entropy_Model/CA_EntropyModel_Test')
 parser.add_argument("--l", type=int, default=1024, choices=[8, 16, 32, 64, 256, 512, 1024, 2048])
 parser.add_argument("--enh", type=int, default=1, choices=[0, 1])
 args = parser.parse_args()
@@ -44,7 +44,7 @@ elif args.l == 1024:
 elif args.l == 2048:
     I_QP = 22
 
-elif args.l == 8:
+if args.l == 8:
     I_level = 2
 elif args.l == 16:
     I_level = 3
@@ -52,6 +52,14 @@ elif args.l == 32:
     I_level = 5
 elif args.l == 64:
     I_level = 7
+elif args.l == 256:
+    I_level = 11
+elif args.l == 512:
+    I_level = 13
+elif args.l == 1024:
+    I_level = 15
+elif args.l == 2048:
+    I_level = 17
 
 path = args.path + '/'
 path_com = args.path + '_com_fast_' + args.mode  + '_' + str(args.l) + '/'

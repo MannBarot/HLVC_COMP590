@@ -1,8 +1,7 @@
 import argparse
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import tensorflow_compression as tfc
-from scipy import misc
 import imageio.v2 as imageio
 import CNN_img
 import motion
@@ -11,8 +10,8 @@ import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-# Enable TensorFlow 1.x compatibility mode for TensorFlow 2.x
-tf.compat.v1.disable_eager_execution()
+# Disable eager to use TF1-style graph execution
+tf.disable_eager_execution()
 
 # Compatibility layer for tensorflow_compression versions
 try:
@@ -64,7 +63,7 @@ string_res1_tensor = tf.compat.v1.placeholder(tf.string, [])
 string_res2_tensor = tf.compat.v1.placeholder(tf.string, [])
 
 
-    with tf.compat.v1.variable_scope("motion_compression", reuse=False):
+with tf.variable_scope("motion_compression", reuse=False):
 
     entropy_mv = tfc.EntropyBottleneck(dtype=tf.float32)
     flow_latent_hat = entropy_mv.decompress(
@@ -72,7 +71,7 @@ string_res2_tensor = tf.compat.v1.placeholder(tf.string, [])
 
     flow_20_hat = CNN_img.MV_synthesis(flow_latent_hat, num_filters=args.N)
 
-    with tf.compat.v1.variable_scope("motion_estimation", reuse=False):
+with tf.variable_scope("motion_estimation", reuse=False):
 
     flow_02_hat = motion.tf_inverse_flow(flow_20_hat, batch_size, Height, Width)
     flow_01_hat = 0.5 * flow_02_hat
@@ -81,13 +80,13 @@ string_res2_tensor = tf.compat.v1.placeholder(tf.string, [])
     flow_21_hat = 0.5 * flow_20_hat
     flow_12_hat = motion.tf_inverse_flow(flow_21_hat, batch_size, Height, Width)
 
-    with tf.compat.v1.variable_scope("MC_uni", reuse=False):
+with tf.variable_scope("MC_uni", reuse=False):
 
-    Y2_warp = tf.contrib.image.dense_image_warp(Y0_com, flow_20_hat)
+    Y2_warp = motion.dense_image_warp(Y0_com, flow_20_hat)
     MC_input_2 = tf.concat([flow_20_hat, Y0_com, Y2_warp], axis=-1)
     Y2_MC = MC_network.MC(MC_input_2)
 
-    with tf.compat.v1.variable_scope("Res_compression_2", reuse=False):
+with tf.variable_scope("Res_compression_2", reuse=False):
 
     entropy_res_2 = tfc.EntropyBottleneck(dtype=tf.float32)
     res2_latent_hat = entropy_res_2.decompress(
@@ -97,14 +96,14 @@ string_res2_tensor = tf.compat.v1.placeholder(tf.string, [])
 
     Y2_com = tf.clip_by_value(Res_2_hat + Y2_MC, 0, 1)
 
-    with tf.compat.v1.variable_scope("MC_bi", reuse=False):
+with tf.variable_scope("MC_bi", reuse=False):
 
-    Y1_warp_0 = tf.contrib.image.dense_image_warp(Y0_com, flow_10_hat)
-    Y1_warp_2 = tf.contrib.image.dense_image_warp(Y2_com, flow_12_hat)
+    Y1_warp_0 = motion.dense_image_warp(Y0_com, flow_10_hat)
+    Y1_warp_2 = motion.dense_image_warp(Y2_com, flow_12_hat)
     MC_input_1 = tf.concat([flow_10_hat, Y0_com, Y1_warp_0, flow_12_hat, Y2_com, Y1_warp_2], axis=-1)
     Y1_MC = MC_network.MC(MC_input_1)
 
-    with tf.compat.v1.variable_scope("Res_compression_1", reuse=False):
+with tf.variable_scope("Res_compression_1", reuse=False):
 
     entropy_res_1 = tfc.EntropyBottleneck(dtype=tf.float32)
     res1_latent_hat = entropy_res_1.decompress(
@@ -144,10 +143,10 @@ saver.restore(sess, save_path=model_path)
 with open(args.bin, "rb") as ff:
     quality_com1 = np.frombuffer(ff.read(4), dtype=np.float32)
     quality_com2 = np.frombuffer(ff.read(4), dtype=np.float32)
-    mv_len = np.frombuffer(ff.read(2), dtype=np.uint16)
-    string_mv = ff.read(np.int(mv_len))
-    res1_len = np.frombuffer(ff.read(2), dtype=np.uint16)
-    string_res1 = ff.read(np.int(res1_len))
+    mv_len = np.frombuffer(ff.read(2), dtype=np.uint16)[0]
+    string_mv = ff.read(int(mv_len))
+    res1_len = np.frombuffer(ff.read(2), dtype=np.uint16)[0]
+    string_res1 = ff.read(int(res1_len))
     string_res2 = ff.read()
 
 com_frame_1, com_frame_2 = sess.run([Y1_com, Y2_com],
@@ -158,8 +157,8 @@ com_frame_1, com_frame_2 = sess.run([Y1_com, Y2_com],
                           string_res1_tensor: string_res1,
                           string_res2_tensor: string_res2})
 
-misc.imsave(args.com_1, np.uint8(np.round(com_frame_1[0] * 255.0)))
-misc.imsave(args.com_2, np.uint8(np.round(com_frame_2[0] * 255.0)))
+imageio.imwrite(args.com_1, np.uint8(np.round(com_frame_1[0] * 255.0)))
+imageio.imwrite(args.com_2, np.uint8(np.round(com_frame_2[0] * 255.0)))
 
 bpp_1 = (6 + len(string_mv)/2 + len(string_res1)) * 8 / Height / Width
 bpp_2 = (6 + len(string_mv)/2 + len(string_res2)) * 8 / Height / Width
